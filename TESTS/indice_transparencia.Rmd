@@ -1,0 +1,104 @@
+---
+title: "Índice de Transparencia"
+author: Pablo Tiscornia
+output: 
+  html_document:
+    code_folding: hide
+date: "2024-05-08"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
+```
+
+```{r echo=FALSE, include=FALSE}
+
+```
+
+
+## Carga de datos
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+df_transparencia_orig <- read_excel("bases/V. FINAL Formulario de relevamiento - Índice de Transparencia 2024 (respuestas)_v2.xlsx")
+```
+
+```{r message=FALSE, warning=FALSE}
+df_transparencia <- df_transparencia_orig |> 
+  relocate("El organismo relevado pertenece a:", .after = "Administración central y desconcentrada") |> 
+  pivot_longer(cols = 9:(ncol(df_transparencia_orig) - 3), 
+               names_to = "pregunta", values_to = "respuesta")
+
+df_transparencia <- df_transparencia |> 
+  separate(col = "pregunta", 
+           into = c("preg_id", "preg_nombre"), 
+           sep = "\\)")
+
+df_transparencia <- df_transparencia |> 
+  mutate(
+    across(.cols = where(is.character), .fns = str_trim),
+    indicador = case_when(str_detect(preg_id, "\\.a") ~ "completitud",
+                          str_detect(preg_id, "\\.b") ~ "actualizacion",
+                          str_detect(preg_id, "\\.c") ~ "disponibilidad"),
+    preg_grupo = parse_number(preg_id),
+    item_tipo = case_when(preg_grupo %in% c(1:13) ~ "TA",
+                          preg_grupo > 13 ~ "TP")) |> 
+  relocate(indicador, .before = preg_nombre) |> 
+  relocate(item_tipo, .before = preg_grupo)
+```
+
+<br>
+
+```{r}
+organismo <- "Ministerio de Salud"
+
+df_transparencia <- df_transparencia |> 
+  #filter(`Administración central y desconcentrada` == organismo) |> 
+  select(1, 2, `Administración central y desconcentrada`, item_tipo, preg_grupo, 
+         preg_id, indicador, preg_nombre, respuesta) |> 
+  mutate(respuesta_limpia = case_when(respuesta %in% c("Si", "Actualizado", "No corresponde") ~ 1,
+                                      respuesta == "Parcialmente" ~ 0.5,
+                                      respuesta %in% c("No", "Desactualizado", "Desactualizada", "Valor nulo") ~ 0)) |> 
+  group_by(`Administración central y desconcentrada`, preg_grupo) |> 
+  mutate(denominador = case_when(!is.na(respuesta) ~ 1, .default = NA_real_),
+         prom_subitem = sum(respuesta_limpia, na.rm = TRUE) / sum(denominador, na.rm = TRUE)) |> 
+  ungroup() |> 
+  group_by(`Administración central y desconcentrada`, preg_grupo, indicador) |> 
+  mutate(prom_item = sum(respuesta_limpia, na.rm = TRUE) / sum(denominador, na.rm = TRUE)) |>
+  ungroup() |> 
+  mutate(pond_componente = case_when(item_tipo == "TA" ~ 0.077,
+                                     item_tipo == "TP" & preg_grupo %in% c(14:19) ~ 0.08,
+                                     item_tipo == "TP" & preg_grupo == 20 ~ 0.5),
+         pond_indice = case_when(item_tipo == "TA" ~ 0.069,
+                                 item_tipo == "TP" & preg_grupo %in% c(14:19) ~ 0.01,
+                                 item_tipo == "TP" & preg_grupo == 20 ~ 0.05))
+
+
+calc_indices <- df_transparencia |> 
+  distinct(`Administración central y desconcentrada`, item_tipo, preg_grupo, prom_subitem, pond_componente, pond_indice) |> 
+  mutate(indice_ta = case_when(item_tipo == "TA" ~ prom_subitem * pond_componente),
+         indice_tp = case_when(item_tipo == "TP" ~ prom_subitem * pond_componente),
+         indice_total = prom_subitem * pond_indice)
+
+tabla_indices <- calc_indices |> 
+  summarise(indice_ta = sum(indice_ta, na.rm = T) * 100,
+            indice_tp = sum(indice_tp, na.rm = T) * 100,
+            indice_total = sum(indice_total, na.rm = T)* 100,
+            .by = `Administración central y desconcentrada`) |>
+  mutate(across(where(is.numeric), .fn = round,1))
+  
+```
+
+<br>
+
+## Simulación - Caso: `r organismo`
+
+
+
+- Índice de Transparencia Activa: **`r format(sum(calc_indices$indice_ta, na.rm = T) * 100, digits = 3, decimal.mark = ",")`**
+
+- Índice de Transparencia Proactiva: **`r format(sum(calc_indices$indice_tp, na.rm = T) * 100, digits = 3, decimal.mark = ",")`**
+
+- Ìndice de Transparencia: **`r format(sum(calc_indices$indice_total, na.rm = T) * 100, digits = 3, decimal.mark = ",")`**
+
+<br><br>
+
+<br>

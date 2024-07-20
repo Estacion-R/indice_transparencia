@@ -1,0 +1,257 @@
+---
+title: "."
+subtitle: "- `r params$sujeto_obligado`"
+author: ""
+date: ""
+output: 
+  pagedreport::paged_windmill:
+    front_img: "informe_portadas/portada_trim_x_organismo-1.png"
+    logo: " "
+    img_to_dark: FALSE
+    logo_to_white: FALSE
+    other_css: "estilo_reporte.css"
+knit: pagedown::chrome_print
+mathjax: https://d3eoax9i5htok0.cloudfront.net/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML
+main-color: "#6BA09D"
+params:
+  sujeto_obligado: param_so
+  periodo: param_fecha
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(message = FALSE, warning = FALSE, echo = FALSE)
+```
+
+```{r echo=FALSE}
+library(here)
+source(here("R/00-librerias.R"))
+source(here("R/config_manual_estilo.R"))
+```
+
+```{r echo=FALSE}
+### Importo ultima base limpia
+ultima_base <- max(list.files(here("bases/"), pattern = "LIMPIA"))
+
+df_transparencia_so <- read_csv(here(glue("bases/{ultima_base}"))) |> 
+  filter(so_nombre == params$sujeto_obligado)
+```
+
+```{r eval=FALSE}
+### Importo ultima base limpia
+ultima_base <- max(list.files(here("bases/"), pattern = "LIMPIA"))
+
+df_transparencia <- read_csv(here(glue("bases/{ultima_base}")))
+
+# ##### Parametros para probar sin iteración
+param_so <- unique(df_transparencia$so_nombre)[7]
+param_fecha <- unique(df_transparencia$periodo)[2]
+
+etiq_so <-tolower(str_replace_all(param_so, " ", "_"))
+
+### base específica para el sujeto obligado y periodo
+df_transparencia_so <- df_transparencia |>
+  filter(so_nombre == param_so)
+```
+
+## Introducción {-}
+
+La Ley N° 27.275 de Derecho de Acceso a la Información Pública tiene por objeto garantizar el efectivo ejercicio del derecho de acceso a la información pública, promover la participación ciudadana y la transparencia de la gestión pública. En su artículo 32° establece un estándar de transparencia al exigir que los sujetos obligados faciliten “la búsqueda y el acceso a la información pública a través de su página oficial de la red informática, de una manera clara, estructurada y entendible para los interesados y procurando remover toda barrera que obstaculice o dificulte su reutilización por parte de terceros”.
+
+La Dirección Nacional de Evaluación de Políticas de Transparencia (DNEPT) de la Agencia de Acceso a la Información Pública (AAIP) monitorea qué, cómo, con qué frecuencia y cuánta información pública disponibilizan los sujetos obligados en sus respectivos sitios web oficiales a través del Índice de Transparencia. Esta herramienta de gestión busca contribuir al fortalecimiento de las políticas de transparencia en el Poder Ejecutivo Nacional, así como coadyuvar al monitoreo que la sociedad realiza sobre la gestión pública.
+
+En el presente informe se presentan los resultados alcanzados por `r params$sujeto_obligado`.
+
+
+## Metodología {-}
+
+El índice releva 20 ítems, de los cuales 13 son de Transparencia Activa y 7 de Transparencia Proactiva. Cada dimensión tiene 3 indicadores empíricos (observables) específicos en los que se puntúa la forma en la que se muestra, publica o explicita la información encontrada:
+
+1. Completitud: observa que la información esté disponible en forma completa;
+1. Actualización: observa que la información está actualizada; y,
+1. Disponibilidad: observa que la información sea de fácil acceso y localización; incluye que se pueda descargar en un formato versátil y que la información esté emplazada en un apartado específico de la pestaña de transparencia o en el Portal Nacional de Transparencia.
+
+El índice alcanza al total de sujetos obligados con una frecuencia de medición semestral, aunque en términos operativos se releva de manera trimestral al 50% del universo de sujetos obligados.
+El valor del índice se compone del promedio ponderado de los subíndices de Transparencia Activa (TA) y Transparencia Proactiva (TP). Cabe aclarar, que el subíndice TA aporta el 90% del valor del Índice de Transparencia (IT), mientras que el subíndice TP aporta el 10% restante. La fórmula es la siguiente:
+
+
+$IT = ((subíndice TA * ponderador)) + ((subíndice TP * ponderador))* 100$
+
+
+
+
+Asimismo, los subíndices se pueden reportar de manera independiente siendo valor de ellos estimados como el promedio ponderado de los ítems que los componen. Las fórmulas son las siguientes:
+```{r}
+# 
+# $TA = ((Ítem 1 * ponderador) + (Ítem 2 * ponderador) + ... (Ítem 13 * ponderador)) * 100$
+# 
+# $TP = ((Ítem 14 * ponderador) + (Ítem 15 * ponderador) + ... (Ítem 20 * ponderador)) * 100$
+
+```
+
+
+## Resultados del Índice de Transparencia {-}
+
+A continuación, se detallan los resultados obtenidos por el organismo en la medición.
+
+```{r}
+## Resultado TOTAL
+df_tabla_indice <- df_transparencia_so |> 
+  #filter(periodo == params$periodo)
+  distinct(periodo, so_tipo, so_nombre, item_tipo, preg_numero, prom_subitem, pond_componente, pond_indice) |> 
+  mutate(indice_ta = case_when(item_tipo == "TA" ~ prom_subitem * pond_componente),
+         indice_tp = case_when(item_tipo == "TP" ~ prom_subitem * pond_componente),
+         indice_total = prom_subitem * pond_indice) |> 
+  summarise("Transparencia Activa" = sum(indice_ta, na.rm = T) * 100,
+            "Transparencia Proactiva" = sum(indice_tp, na.rm = T) * 100,
+            "Índice de Transparencia" = sum(indice_total, na.rm = T)* 100,
+            .by = c(periodo, so_nombre)) |> 
+  mutate(across(where(is.numeric), \(x) round(x, digits = 1))) |> 
+  pivot_longer(cols = contains("Transparencia"), names_to = "indice", values_to = "indice_valor") |> 
+  mutate(indice = factor(indice, levels = c("Índice de Transparencia",
+                                            "Transparencia Proactiva",
+                                            "Transparencia Activa"))) 
+
+df_tabla_indice |> 
+  ggplot(aes(x = indice_valor, y = indice)) + 
+  geom_col(fill = color_celeste) +
+  geom_text(aes(label = indice_valor), hjust = -0.1) + 
+  geom_vline(xintercept = 0) + 
+  xlim(0, 100) + 
+  labs(title = "Resultados Índice de Transparencia",
+       subtitle = glue("{params$sujeto_obligado}"),
+       caption = "Fuente: elaboración propia en base a resultados IT",
+       x = "", y = "") + 
+   theme(
+    panel.grid.minor = element_blank(),
+    plot.title = element_text(face = "bold"),
+    plot.title.position = "plot",
+    plot.caption = element_text(color = "darkgray", face = "italic")
+  )
+```
+
+
+## Subíndice Transparencia Activa {-}
+
+Se releva una selección de los tipos de información exigibles en los términos del artículo 32 de la Ley 27.275. Una vez obtenido el valor de cada uno de los ítems, se realiza una suma ponderada para calcular el valor del desempeño de la transparencia activa de los sujetos obligados. De esta manera, al multiplicar y sumar los valores de cada ítem por su ponderador, el resultado dará un valor entre 0 y 100
+
+```{r}
+## Resultado POR DIMENSIÓN
+
+tabla_indiceTA_x_dimension <- df_transparencia_so |> 
+  filter(item_tipo == "TA") |> 
+  distinct(periodo, so_tipo, so_nombre, preg_numero, prom_subitem) |> 
+  slice_head(n = 1, by = c(periodo, so_tipo, so_nombre, preg_numero)) |> 
+  left_join(dicc_equivalencias, by = c("preg_numero" = "codigo")) |> 
+  mutate(equivalencia = paste0(preg_numero, ". ", equivalencia)) |> 
+  select(periodo, equivalencia, prom_subitem) |> 
+  add_row(periodo = df_tabla_indice$periodo[1], 
+          equivalencia = "Índice de Transparencia Activa", 
+          prom_subitem = df_tabla_indice |> 
+            filter(indice == "Transparencia Activa") |> pull(indice_valor)/100, .before = 1)
+
+tabla_indiceTA_x_dimension |> 
+  select(-periodo) |> 
+  gt() |> 
+  tab_header(
+    title = md("**Resultados Subíndice Transparencia Activa por dimensión**"),
+    subtitle = paste0(params$sujeto_obligado, " - ", params$periodo)
+    ) |> 
+  tab_footnote(footnote = "Fuente: elaboración propia en base a resultados IT") |> 
+  cols_label(
+    equivalencia = "**Dimensión**",
+    prom_subitem = "**Valor del índice**",
+    .fn = md
+  ) |> 
+  fmt_number(columns = prom_subitem, decimals = 1, sep_mark = ".", dec_mark = ",",  
+             scale_by = 100, drop_trailing_zeros = TRUE, drop_trailing_dec_mark = TRUE) |> 
+  tab_style(
+    style = list(
+      cell_text(weight = "bold")),
+    locations = cells_body(
+      rows = equivalencia == "Índice de Transparencia Activa"
+    )
+  ) |> 
+  cols_align(align = "left", columns = equivalencia) |> 
+  cols_align(align = "center", columns = prom_subitem) |> 
+  tab_options(
+    table.width = pct(95)
+    ) |>
+  sub_missing(
+    columns = prom_subitem,
+    missing_text = "-"
+  )
+```
+
+
+## Subíndice Transparencia Proactiva {-}
+
+Los ítems de transparencia proactiva son una innovación en el índice, dado que amplían las obligaciones de transparencia establecidas en el inciso "t" del artículo 32 de la Ley 27.275. La contribución del desempeño de esta sección tiene un aporte menor al valor del índice, ya que es de un 10%.
+
+```{r}
+## Resultado POR DIMENSIÓN
+
+tabla_indiceTP_x_dimension <- df_transparencia_so |> 
+  filter(item_tipo == "TP") |> 
+  distinct(periodo, so_tipo, so_nombre, preg_numero, prom_subitem) |> 
+  slice_head(n = 1, by = c(periodo, so_tipo, so_nombre, preg_numero)) |> 
+  left_join(dicc_equivalencias, by = c("preg_numero" = "codigo")) |> 
+  mutate(equivalencia = paste0(preg_numero, ". ", equivalencia)) |> 
+  select(periodo, equivalencia, prom_subitem) |> 
+  add_row(periodo = df_tabla_indice$periodo[1], 
+          equivalencia = "Índice de Transparencia Procativa", 
+          prom_subitem = df_tabla_indice |> 
+            filter(indice == "Transparencia Proactiva") |> pull(indice_valor)/100, .before = 1)
+
+tabla_indiceTP_x_dimension |> 
+  select(-periodo) |> 
+  gt() |> 
+  tab_header(
+    title = md("**Índice de Transparencia según dimensión**"),
+    subtitle = paste0(params$sujeto_obligado, " - ", params$periodo)
+    ) |> 
+  tab_footnote(footnote = "Fuente: elaboración propia en base a resultados IT") |> 
+  cols_label(
+    equivalencia = "**Dimensión**",
+    prom_subitem = "**Valor del índice**",
+    .fn = md
+  ) |> 
+  fmt_percent(columns = prom_subitem, decimals = 1, sep_mark = ".", dec_mark = ",") |> 
+  tab_style(
+    style = list(
+      cell_text(weight = "bold")),
+    locations = cells_body(
+      rows = equivalencia == "Índice de Transparencia Procativa"
+    )
+  ) |> 
+  cols_align(align = "left", columns = equivalencia) |> 
+  cols_align(align = "center", columns = prom_subitem) |> 
+  tab_options(
+    table.width = pct(95)
+    ) |>
+  sub_missing(
+    columns = prom_subitem,
+    missing_text = "-"
+  )
+```
+
+
+## Recomendaciones {-}
+
+En virtud de los resultados obtenidos se detallan a continuación una serie de recomendaciones para fortalecer la política de transparencia del organismo, en base al Instructivo para el cumplimiento de las obligaciones de Transparencia Activa y Proactiva por parte de los sujetos obligados de la Ley N° 27.275 (Anexo I – Resolución AAIP 77/2024):
+
+- Recomendación 1
+- Recomendación 2
+- Recomendación N
+
+> Las visualizaciones de los resultados del IT y los datasets se encuentran disponibles [aquí](https://www.argentina.gob.ar/aaip/transparenciayparticipacion/indice-de-transparencia-activa).
+
+\pagebreak 
+
+## Referencias {-}
+
+- [Ley N° 27.275 – Derecho de acceso a la información pública](https://servicios.infoleg.gob.ar/infolegInternet/anexos/265000-269999/265949/norma.htm)
+- [Resolución AAIP 76/2024 - Pautas para la organización del Sistema de Transparencia y Acceso a la información publica](https://www.argentina.gob.ar/normativa/nacional/resolución-76-2024-397819)
+- [Resolución AAIP 77/2024 - Instructivo para el cumplimiento de las obligaciones de Transparencia Activa y Proactiva por parte de los sujetos obligados de la Ley N° 27.275 y Mecanismo de Monitoreo de las Políticas de Transparencia](https://www.argentina.gob.ar/normativa/nacional/resolución-77-2024-397820)
+    
+
+

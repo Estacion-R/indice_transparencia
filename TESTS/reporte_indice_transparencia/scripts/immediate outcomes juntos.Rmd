@@ -1,0 +1,155 @@
+---
+title: "immediate outcomes juntos"
+author: "Alejandra Garcia Isaza"
+date: "2023-01-05"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(rio)
+library(here)
+library(tidyverse)
+library(haven)
+library(janitor)
+library(knitr)
+library(surveytoolbox)
+library(sjPlot)
+library(kableExtra)
+library(psych)
+library(sjmisc)
+```
+
+### PARENT ###
+
+# Loading the data (wave 1)
+```{r}
+d_raw_w1 <- read_sav(here("nopublish", "all_parent_wave1.sav")) %>%
+  arrange(participant_id)
+```
+
+# Loading the data (wave 2)
+```{r}
+d_raw_w2 <- read_sav(here("nopublish", "all_parent_wave2.sav")) %>%
+  arrange(participant_id)
+```
+
+
+# filtering primary caregiver only (wave 1)
+```{r}
+d_w1 <- d_raw_w1 %>%
+  select(-response_id) %>%
+  distinct(family_id, .keep_all = TRUE) # 95 primary caregivers
+```
+
+# filtering primary caregiver only (wave 2)
+```{r}
+d_w2 <- d_raw_w2 %>%
+  select(-response_id) %>%
+  distinct(family_id, .keep_all = TRUE) # 84 primary caregivers
+```
+
+id 110, 113, 209, 405, 407, 419, 508, 509, 612, 619, 620 not present in w2 = 11 primary caregiver participants lost to w2
+
+```{r}
+# adding "p1" to each variable name: "p" stands for parent, "1" for wave 1.
+# names(d_w1) <- paste(names(d_w1), "p1", sep = "_")
+
+d2_w1 <- d_w1 %>%
+  rename(c("school_id" = "school_id_p1"),
+         c("condition" = "condition_p1"),
+         c("family_id" = "family_id_p1"),
+         c("participant_id" = "participant_id_p1"))
+```
+
+```{r}
+# adding "p2" to each variable name: "p" stands for parent, "2" for wave 2.
+# names(d_w2) <- paste(names(d_w2), "p2", sep = "_")
+
+d2_w2 <- d_w2 %>%
+  rename(c("school_id" = "school_id_p2"),
+         c("condition" = "condition_p2"),
+         c("family_id" = "family_id_p2"),
+         c("participant_id" = "participant_id_p2"))
+```
+
+# joining w1 and w2 (PARENT)
+```{r}
+parent_w1_w2 <- left_join(d2_w1, d2_w2)
+```
+
+# creating dataset with w1 and w2 for SPSS analysis (PARENT)
+```{r}
+# parent_w1_w2 %>%
+#   haven::write_sav(here("nopublish", "parent_w1_w2.sav"))
+```
+
+# loading parent W1 & W2 dataset
+```{r}
+pa_w1_w2 <- read_sav(here("nopublish", "parent_w1_w2.sav"))
+```
+
+
+TO DO NEXT
+- use code to make -99, 99, 88, 77 to NA
+- create scales?
+
+### YOUTH ###
+
+# Loading the data (wave 1)
+```{r}
+y_raw_w1 <- read_sav(here("nopublish", "all_youth_wave1.sav")) %>%
+  rename(c("family_id" = "id")) %>%
+  arrange(family_id)
+```
+
+# Loading the data (wave 2)
+```{r}
+y_raw_w2 <- read_sav(here("nopublish", "all_youth_wave2.sav")) %>%
+  rename(c("family_id" = "id")) %>%
+  arrange(family_id)
+```
+id 110, 112, 113, 209, 210, 407, 410, 419, 508, 509, 606, 612, 620, 621, 623 not present in w2 = 15 participants lost to w2
+
+```{r}
+# adding "y1" to each variable name: "y" stands for youth, "1" for wave 1.
+# names(y_raw_w1) <- paste(names(y_raw_w1), "y1", sep = "_")
+
+y_w1 <- y_raw_w1 %>%
+  select(-response_id_y1) %>%
+  rename(c("school_id" = "school_id_y1"),
+         c("condition" = "condition_y1"),
+         c("family_id" = "family_id_y1")) 
+```
+```{r}
+# adding "y1" to each variable name: "y" stands for youth, "1" for wave 1.
+# names(y_raw_w2) <- paste(names(y_raw_w2), "y2", sep = "_")
+
+y_w2 <- y_raw_w2 %>%
+  select(-response_id_y2) %>%
+  rename(c("school_id" = "school_id_y2"),
+         c("condition" = "condition_y2"),
+         c("family_id" = "family_id_y2")) 
+```
+
+# joining w1 and w2 (YOUTH)
+```{r}
+youth_w1_w2 <- left_join(y_w1, y_w2)
+```
+
+# creating dataset with w1 and w2 for SPSS analysis (YOUTH)
+```{r}
+# youth_w1_w2 %>%
+#   haven::write_sav(here("nopublish", "youth_w1_w2.sav"))
+```
+
+# loading YOUTH W1 & W2 dataset
+```{r}
+y_w1_w2 <- read_sav(here("nopublish", "youth_w1_w2.sav"))
+```
+
+# joining w1 and w2 parent & youth (ALL)
+```{r}
+fam_w1_w2 <- inner_join(pa_w1_w2, y_w1_w2) # id 504 was not included 
+```

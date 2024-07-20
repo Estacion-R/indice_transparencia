@@ -1,0 +1,515 @@
+---
+title: "elt"
+author: "Alejandra Garcia Isaza"
+date: "2/2/2021"
+output: html_document
+---
+
+note: need to update .sav files to change the position of wave variable.
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(rio)
+library(here)
+library(tidyverse)
+library(haven)
+
+library(surveytoolbox)
+library(sjPlot)
+```
+
+
+```{r}
+
+w1_raw <- haven::read_sav(here("nopublish", "ELT W1 ERC 11.11.2020.sav"))
+
+w1_raw
+```
+
+```{r}
+
+elt_w1_clean <- w1_raw %>% 
+  janitor::clean_names() %>%
+  select(-1:-8, -13:-17, -202) %>% # deleting columns with metadata
+  rename(c("id" = "pj")) %>%
+  arrange(id) # ordering participants ids
+
+elt_w1_clean
+```
+
+```{r}
+
+# fixing duplicates ids
+duplicated(elt_w1_clean$id) # id_number: 257 is dupplicated and there is no 254
+
+elt_w1_clean <- elt_w1_clean %>%
+  mutate(id = case_when(response_id == "R_6EELe7Uuwi9W7zX" ~ "254",
+                        TRUE ~ as.character(id))) %>%
+  arrange(id)
+
+duplicated(elt_w1_clean$id) # testing that there are no more id duplicates == No duplicates!
+
+elt_w1_clean
+```
+
+```{r}
+
+# fixing wrong assignment
+elt_w1_clean_2 <- elt_w1_clean %>%
+  mutate(school_id = str_sub(id, 1, 1),
+         condition = case_when(
+           school_id == "1" | school_id == "3" | school_id == "5" ~ "1",
+           school_id == "2" | school_id == "4" | school_id == "6" ~ "2"
+         )) %>%
+  select(school_id, condition, everything()) %>%
+  add_column(wave = 1, .before = 9) %>%
+  select(- school)
+
+elt_w1_clean_2
+```
+
+```{r}
+
+# making variables numeric and adding labels  
+elt_w1_clean_3 <- elt_w1_clean_2 %>%
+  mutate(condition = as.numeric(condition),
+         condition = set_vall(condition, c("control" = 1, "intervention" = 2)),
+         school_id = as.numeric(school_id),
+         school_id = set_vall(school_id, c("cascade" = 1, "prairie_mountain" = 2, "kelly" = 3, "ata" = 4, "briggs" = 5, "agnes_stewart" = 6)),
+         q68 = ifelse(q68 == 5, 99, q68),
+         q68 = set_varl(q68, "When I communicate with Latino families, I keep in mind that many Latino parents may not understand how to navigate the educational system in this
+country."),
+         q68 = set_vall(q68, c("Strongly Disagree" = 1, "Disagree" = 2, "Agree" = 3, "Strongly Agree" = 4, "No response" = 99)))
+
+elt_w1_clean_3
+
+view_df(elt_w1_clean_3) # nice plot that serves as codebook
+```
+
+```{r}
+# exporting to .sav to check proper coding of condition and labels
+# elt_w1_clean_3 %>%
+#   haven::write_sav(here("nopublish", "elt_w1_clean_3.sav")) # updated export on 02/23/21
+```
+
+Results:
+- This would be the master dataset (without collapsed vars or renamed vars)
+- school_id matchs assigned condition properly!
+- Labels were properly exported (both variable labels and level labels on .sav file)
+
+```{r}
+# collapsing language variables q132_<<language>>_<<choice>> 
+
+# collapsing english variables
+eng <- elt_w1_clean_3 %>% 
+  select(id, starts_with("q132_1")) %>% 
+    pivot_longer(
+      cols = starts_with("q132_1"),
+      names_to = "item_1",
+      values_to = "english_comfort",
+      values_drop_na = TRUE) %>% 
+   filter(english_comfort == 1) %>%
+  mutate(english_comfort = case_when(item_1 == "q132_1_1" ~ "1",
+                                     item_1 == "q132_1_2" ~ "2",
+                                     item_1 == "q132_1_3" ~ "3",
+                                     item_1 == "q132_1_4" ~ "4",
+                                     item_1 == "q132_1_99" ~ "99",
+                        TRUE ~ as.character(english_comfort)))  %>%
+  select(-item_1)
+
+duplicated(eng$id) # no duplicates
+
+# collapsing spanish variables
+spa <- elt_w1_clean_3 %>%
+  select(id, starts_with("q132_2")) %>% 
+    pivot_longer(
+      cols = starts_with("q132_2"),
+      names_to = "item_2",
+      values_to = "spanish_comfort",
+      values_drop_na = TRUE) %>% 
+   filter(spanish_comfort == 1) %>%
+  mutate(spanish_comfort = case_when(item_2 == "q132_2_1" ~ "1",
+                                     item_2 == "q132_2_2" ~ "2",
+                                     item_2 == "q132_2_3" ~ "3",
+                                     item_2 == "q132_2_4" ~ "4",
+                                     item_2 == "q132_2_99" ~ "99",
+                        TRUE ~ as.character(spanish_comfort))) %>%
+  select(-item_2) 
+
+duplicated(spa$id) # id 454 is duplicated. In w1_raw it shows that this participant chose options 1 and 2 (not sure if they could choose more than one option in Qualtrics). 
+
+# fixing duplicate
+spa_2 <- spa %>% 
+  distinct(id, .keep_all = TRUE) # Option 1, "not at all comfortable" was chosen because the duplicate was the second option.  
+
+duplicated(spa_2$id) # no duplicates
+
+# joining english and spanish variables
+langs <- left_join(eng, spa_2) 
+
+# collapsing other language 1 variables
+other_1 <- elt_w1_clean_3 %>% 
+  select(id, starts_with("q132_3"), -q132_3_text) %>% 
+    pivot_longer(
+      cols = starts_with("q132_3"),
+      names_to = "item_3",
+      values_to = "other1_lang_comfort",
+      values_drop_na = TRUE) %>% 
+   filter(other1_lang_comfort == 1) %>%
+  mutate(other1_lang_comfort = case_when(item_3 == "q132_3_1" ~ "1",
+                                    item_3 == "q132_3_2" ~ "2",
+                                    item_3 == "q132_3_3" ~ "3",
+                                    item_3 == "q132_3_4" ~ "4",
+                                    item_3 == "q132_3_99" ~ "99",
+                        TRUE ~ as.character(other1_lang_comfort)))  %>%
+  select(-item_3)
+
+
+duplicated(other_1$id) # no duplicates
+
+# collapsing other language 2 variables
+other_2 <- elt_w1_clean_3 %>% 
+  select(id, starts_with("q132_4"), -q132_4_text) %>% 
+    pivot_longer(
+      cols = starts_with("q132_4"),
+      names_to = "item_4",
+      values_to = "other2_lang_comfort",
+      values_drop_na = TRUE) %>% 
+   filter(other2_lang_comfort == 1) %>%
+  mutate(other2_lang_comfort = case_when(item_4 == "q132_4_1" ~ "1",
+                                    item_4 == "q132_4_2" ~ "2",
+                                    item_4 == "q132_4_3" ~ "3",
+                                    item_4 == "q132_4_4" ~ "4",
+                                    item_4 == "q132_4_99" ~ "99",
+                        TRUE ~ as.character(other2_lang_comfort)))  %>%
+  select(-item_4)
+
+
+duplicated(other_2$id) # no duplicates
+
+# joining other 1 and 2 language variables
+others <- left_join(other_1, other_2) 
+
+
+# joining dataframes with all language variables
+lang_vars <- left_join(langs, others)
+
+duplicated(lang_vars$id) # no duplicates
+
+# renaming variables with text input in master dataset (n = 43)
+lang_inputs <- elt_w1_clean_3 %>%
+  select(id, q132_3_text, q132_4_text) %>%
+  rename(c("other1_lang" = "q132_3_text"), c("other2_lang" = "q132_4_text"))
+
+duplicated(lang_inputs$id) # no duplicates
+
+# joining renamed master dataset with all language variables now collapsed to "recover" id 153 data
+all_lang_vars <- left_join(lang_inputs, lang_vars)
+
+duplicated(all_lang_vars$id) # no duplicates
+
+# recordering all language vars
+all_lang_vars <- all_lang_vars %>%
+  select(id, english_comfort, spanish_comfort, other1_lang, other1_lang_comfort, other2_lang, everything())
+
+# creating new dataset that joins master dataset with reordered and collapsed lang vars
+elt_w1_clean_4 <- left_join(elt_w1_clean_3, all_lang_vars) %>%
+  select(-starts_with("q132_")) # deleting all previous language variables that were included in new variables # 
+
+duplicated(elt_w1_clean_4$id) # no duplicates, n = 43
+
+# adding value labels on language vars
+elt_w1_clean_4 <- elt_w1_clean_4 %>%
+  mutate(english_comfort = as.numeric(english_comfort),
+         english_comfort = set_vall(english_comfort, c("not at all comfortable" = 1, "somewhat comfortable" = 2, "comfortable" = 3, "very comfortable" = 4, "no response" = 99)),
+         spanish_comfort = as.numeric(spanish_comfort),
+         spanish_comfort = set_vall(spanish_comfort, c("not at all comfortable" = 1, "somewhat comfortable" = 2, "comfortable" = 3, "very comfortable" = 4, "no response" = 99)),
+         other1_lang_comfort = as.numeric(other1_lang_comfort),
+         other1_lang_comfort = set_vall(other1_lang_comfort, c("not at all comfortable" = 1, "somewhat comfortable" = 2, "comfortable" = 3, "very comfortable" = 4, "no response" = 99)),
+         other2_lang_comfort = as.numeric(other2_lang_comfort),
+         other2_lang_comfort = set_vall(other2_lang_comfort, c("not at all comfortable" = 1, "somewhat comfortable" = 2, "comfortable" = 3, "very comfortable" = 4, "no response" = 99)),
+         )
+
+view_df(elt_w1_clean_4)
+
+```
+
+```{r}
+
+# renaming demo vars
+elt_w1_clean_5 <- elt_w1_clean_4 %>%
+  rename(c("age" = "q127_1_text"), 
+         c("birth_country" = "q128"),
+         c("another_birth_country_text" = "q128_2_text"),
+         c("age_first_moved_us" = "q129_1_text"),
+         c("white" = "q130_1"),
+         c("hispanic_latino_spanish" = "q130_2"),
+         c("black_african_american" = "q130_3"),
+         c("asian" = "q130_4"),
+         c("american_indian_alaska_native" = "q130_5"),
+         c("indigenous_americas" = "q130_6"),
+         c("middle_eastern_north_african" = "q130_7"),
+         c("native_hawaiian_pacific_islander" = "q130_8"),
+         c("race_ethnicity_other" = "q130_9"),
+         c("race_ethnicity_no_response" = "q130_99"),
+         c("indigenous_americas_text" = "q130_6_text"),
+         c("race_ethnicity_other_text" = "q130_9_text"),
+         c("gender_id" = "q131"),
+         c("years_in_position" = "q133"),
+         c("years_in_school" = "q134"),
+         c("equity_leadership" = "q135_1"),
+         c("cultural_responsiveness" = "q135_2"),
+         c("restorative_practices" = "q135_3"),
+         c("diversity" = "q135_4"),
+         c("ell" = "q135_5"),
+         c("cont_ed_other" = "q135_6"),
+         c("cont_ed_na" = "q135_88"),
+         c("cont_ed_no_response" = "q135_99"),
+         c("cont_ed_other_text" = "q135_6_text")) %>%
+  select(-q127, -q129, -q131_3_text) # deleted: q127, q129, q131_3_text because they did not have meaningful info
+
+view_df(elt_w1_clean_5)
+
+```
+
+# Notes on w1 dataset
+
+- Participant 257 was duplicated and 254 was missing. This was fixed.
+- participant 153 didn't complete survey, after q50 it's empty. 
+- Total participants in wave 1 n = 43
+
+```{r}
+# exporting to .sav to check proper coding of condition and labels
+# elt_w1_clean_5 %>%
+#   haven::write_sav(here("nopublish", "elt_w1_clean_5.sav")) # it worked, variable and value labels were succesfully exported. # updated export on 02/23/21
+```
+
+# Notes on Missing values
+
+88 = "not applicable"
+99 = "no response"
+-99 = seen but unanswered questions -- (e.g questions that ask participants to respond if they have knowledge about classroom)
+NA = unseen question, either because participant didn't complete survey (e.g. id 153) or because of skip logic (they were not teachers or had classroom knowledge) --> NA appear in SPSS as (.)
+blank spaces = not sure, but prob. irrelevant
+
+```{r}
+# recoding missing values as N/A with function
+
+# vector with missing values in dataset
+missing_vals <- c(88, 99, -99)
+
+# function that returns true if values in vector are equal to missing_vals. The function takes a vector x, and specified values of missing data
+recode_missing <- function(x, missing_vals = c(88, 99, -99)) {
+  test <- x %in% missing_vals
+  ifelse(test, NA, x)
+}
+
+# function that recodes missing values to NA. The function takes a dataframe with variables with missing data, and specified values of missing data
+recode_missing_df <- function(df, missing_vals = c(88, 99, -99)) {
+  modify(df, ~recode_missing(.x, missing_vals)) # here uses the function created above
+}
+
+elt_w1_clean_6 <- recode_missing_df(elt_w1_clean_5) 
+
+# view_df(elt_w1_clean_6) # notice that applying this strips out labels
+```
+
+
+```{r}
+elt_w1_clean_6_rev_code <- elt_w1_clean_6 %>%
+  mutate(q25 = likert_reverse(q25, top = 4, bottom = 1),
+         q73 = likert_reverse(q73, top = 4, bottom = 1),
+         q110 = likert_reverse(q110, top = 6, bottom = 1),
+         q113 = likert_reverse(q113, top = 6, bottom = 1),
+         q114 = likert_reverse(q114, top = 6, bottom = 1),
+         q115 = likert_reverse(q115, top = 6, bottom = 1),
+         q116 = likert_reverse(q116, top = 6, bottom = 1),
+         q123 = likert_reverse(q123, top = 4, bottom = 1),
+         q124 = likert_reverse(q124, top = 4, bottom = 1))
+
+```
+
+
+# Scales
+
+## climate general 
+q1 - q24 (1-4, disagree - agree) higher score, better school climate
+
+## School conflict & behavior management --> NOT using these.
+q25 - q35 (1-4, disagree - agree)
+
+## School engagement of diversity 
+q36 - q49 (1-4, disagree - agree) higher score, more engagement of diversity
+
+## Self-efficacy in promoting equity
+q50 - q55 (1-4, disagree - agree) higher score, more self-efficacy to promote equity
+
+## School-Latino fams relations
+q56 - q64 and q70 - q72 (1-4, disagree - agree) higher scores better relation
+
+## Teacher-Latino fams relations
+q65 - q69 and q74 - q76 (1-4, disagree - agree) higher scores better relation
+
+## Teacher bias Latino students --> NOT using this one.
+q73 
+
+## General Teaching efficacy 
+q108, q109, q111, q112, q117 (1-6, s. agree - s. disagree) higher scores more general teaching efficacy as they disagree with the statements
+
+## Personal Teaching efficacy 
+q110, q113, q114, q115, q116 (1-6, s. disagree - s. agree (Rev coded)) higher scores more personal teaching efficacy as they agree with the statements
+
+
+# Common guidelines for evaluating Cronbach's Alpha
+.00 to .69 = Poor
+.70 to .79 = Fair 
+.80 to .89 = Good 
+.90 to .99 = Excellent/Strong
+
+Note: all of the code that referred to columns were wrong. I changed it here to reflect the variable names. 
+
+```{r}
+####### internal consistency ######
+
+library(psych)
+
+################
+climate_gen <- elt_w1_clean_6_rev_code %>%
+  select(q1:q24) %>% 
+  data.frame() 
+
+alpha(climate_gen) # alpha = .92 -->  excellent consistency. Probably because the sheer number of items in scale (24)
+
+# with these i'm trying to follow the scales of the Kettering measure, but not great consistency
+# respect <- elt_w1_clean_6_rev_code %>%
+#   select(q1, q10, q11, q21, q24) %>%
+#   data.frame()
+# alpha(respect) # alpha = .78 -->  fair consistency
+
+# trust <- elt_w1_clean_6_rev_code %>%
+#   select(q5, q6, q7, q8) %>%
+#   data.frame()
+# alpha(trust) # alpha = .61 -->  poor consistency
+
+# conclusion: it's too hard to find ways to make them hang together. Ask Heather, describe in report that it is advised to conduct an exploratory and confirmatory factro analysis for this important construct.  
+#######################
+
+diver_engage <- elt_w1_clean_6_rev_code %>%
+  select(q36:q49) %>% 
+  data.frame()
+
+alpha(diver_engage) # alpha = .92 -->  Excellent consistency
+
+equity_self_eff <- elt_w1_clean_6_rev_code %>%
+  select(q50:q55) %>% 
+  data.frame()
+
+alpha(equity_self_eff) # alpha = .89 -->  good consistency
+
+#######################
+# scho_lat_fam_rel <- elt_w1_clean_6_rev_code %>%
+#   select(q56:q64) %>%
+#   data.frame() # alpha = . --> .84 good consistency
+# alpha(scho_lat_fam_rel)
+
+scho_lat_fam_rel_2 <- elt_w1_clean_6_rev_code %>%
+  select(q56:q64, q70:q72) %>% 
+  data.frame() 
+alpha(scho_lat_fam_rel_2) # alpha = .88 --> good consistency
+##########################
+
+##########################
+# teach_lat_fam_rel <- elt_w1_clean_6_rev_code %>%
+#   select(q65:q76) %>%
+#   data.frame() # (q73 was reverse coded)
+# 
+# alpha(teach_lat_fam_rel) # alpha = .69 --> poor consistency, prblematic items: q73 and q75
+# 
+# teach_lat_fam_rel_2 <- elt_w1_clean_6_rev_code %>%
+#   select(q65:q72, q74) %>% # keeping q70:q72, leaving out q73, q75, q76
+#   data.frame()
+# 
+# alpha(teach_lat_fam_rel_2) # alpha = .76 --> fair consistency
+
+teach_lat_fam_rel_3 <- elt_w1_clean_6_rev_code %>%
+  select(q65:q69, q74) %>% # leaving out q70:q73, q75, q76
+  data.frame()
+
+alpha(teach_lat_fam_rel_3) # alpha = .84--> good consistency
+###########################
+
+############################
+# teach_self_eff_all <- elt_w1_clean_6_rev_code %>% 
+#   select(q108:q117) %>% 
+#   data.frame() # (q110, q113, q114, q115, q116 were reverse coded)
+# alpha(teach_self_eff_all) # alpha = .74 --> fair consistency
+
+teach_eff_gen <- elt_w1_clean_6_rev_code %>% # general teaching efficacy dimension in original measure
+  select(q108, q109, q111, q112, q117) %>% 
+  data.frame()
+alpha(teach_eff_gen) # alpha = .73 --> fair consistency
+
+teach_eff_per <- elt_w1_clean_6_rev_code %>% # personal teaching efficacy dimension in original measure
+  select(q110, q113, q114, q115, q116) %>% 
+  data.frame()
+alpha(teach_eff_per) # alpha = .88 --> good consistency
+#############################
+
+```
+
+### Next step: create scales with the scales with best consistency
+
+
+```{r}
+elt_w1_scales <- elt_w1_clean_6_rev_code %>%
+  rowwise() %>% 
+  mutate(climate_general = mean(c(q1, q2, q3, q4, q5, q6, q7, q8, q9, q10, q11, q12, q13, q14, q15, q16, q17, q18, q19, q20, q21, q22, q23, q24), na.rm = TRUE),
+         school_engage_diversity = mean(c(q36, q37, q38, q39, q40, q41, q42, q43, q44, q45, q46, q47, q48, q49), na.rm = TRUE),
+         equity_self_efficacy = mean(c(q50, q51, q52, q53, q54, q55), na.rm = TRUE),
+         school_lat_fam_rel = mean(c(q56, q57, q58, q59, q60, q61, q62, q63, q64, q70, q71, q72), na.rm = TRUE),
+         teacher_lat_fam_rel = mean(c(q65, q66, q67, q68, q69, q74), na.rm = TRUE),
+         gen_teaching_efficacy = mean(c(q108, q109, q111, q112, q117), na.rm = TRUE),
+         per_teaching_efficacy = mean(c(q110, q113, q114, q115, q116), na.rm = TRUE)) %>%
+  select(1:7, 169:175) # selecting only id variables and the new scales
+
+final_elt_w1 <- left_join(elt_w1_clean_5, elt_w1_scales)
+
+view_df(final_elt_w1)
+```
+
+# Notes
+in report say that only scales have reverse coded items. In the dataset in itself, I won't reverse code because it strips out value labels. 
+
+
+# Descriptives 
+
+```{r}
+# function to take proportions
+prop_fun <- function(df, var) {
+  df %>%
+    group_by({{var}}) %>%
+    summarize(n = n()) %>%
+    mutate(prop = round(n/sum(n), 2))
+}
+
+prop_fun(elt_w1_clean_6, white)
+
+prop_fun(elt_w1_clean_6, hispanic_latino_spanish)
+
+prop_fun(elt_w1_clean_6, black_african_american)
+
+prop_fun(elt_w1_clean_6, american_indian_alaska_native)
+
+prop_fun(elt_w1_clean_6, indigenous_americas)
+
+prop_fun(elt_w1_clean_6, race_ethnicity_other)
+```
+
+```{r}
+# nice frequencies table
+elt_w1_clean_6 %>% 
+  select(1, 2, 5, 136:168) %>% 
+  gtsummary::tbl_summary()
+```
+

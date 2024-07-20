@@ -1,0 +1,235 @@
+---
+title: "parent w1"
+author: "Alejandra Garcia Isaza"
+date: "3/31/2022"
+output: html_document
+---
+Note on March 31, 2022: I copied the code below from "parent_3_waves.Rmd" which I think is the doc I was working on the latest for cleaning. Here I will only work on parents wave 1 (baseline) for dissertation and will update progress made here to the three waves Rmd to continue cleaning.
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(rio)
+library(here)
+library(tidyverse)
+library(haven)
+library(janitor)
+library(knitr)
+library(surveytoolbox)
+library(sjPlot)
+library(kableExtra)
+library(psych)
+library(sjmisc)
+```
+
+################## WAVE 1 ##################
+
+# Loading the data & initial cleaning
+```{r}
+p_w1_raw <- read_sav(here("nopublish", "7b. Juntos Parent W1-SPAN_February 10, 2021_10.24.sav"))
+
+p_w1_raw <- p_w1_raw %>% 
+  arrange(ID_1_TEXT) %>% # ordering participants ids
+  janitor::clean_names() %>% # cleaning names
+  select(-id) %>% 
+  rename(c("id" = "id_1_text"))
+```
+
+# Checking duplicated ids
+```{r}
+data.frame(table(p_w1_raw$id)) # 29 ids have 2 or more instances each (ids 415 and 418 have 3 instances each)
+
+dupes <- p_w1_raw %>%
+  select(id, response_id) %>%
+  arrange(id)
+```
+
+# Further cleaning & dealing with duplicates
+```{r}
+p_w1_clean <- p_w1_raw %>% 
+  select(-1:-8, -10:-17, -19, -20) %>% # selecting out columns with metadata
+  filter(id != "999") %>% # deleting 2 test rows
+  filter(response_id != "R_31L6rXjsdcuBaz0") %>% # deleting 1 duped row "false start" (id 312)
+  mutate(id = case_when(response_id == "R_12ch5JnOHKHRgre" ~ "408", # id 418 (top one) recoded as 408
+                        response_id == "R_uaijWwHdl8sIOmB" ~ "317", # had a pj before id #
+                        TRUE ~ as.character(id))) %>%
+  arrange(id)
+
+data.frame(table(p_w1_clean$id)) # duplicated ids match two-parent families, id 415 is a family of 3
+```
+
+# Fixing wrong condition assignment and school id
+```{r}
+# fixing wrong assignment
+p_w1_clean_2 <- p_w1_clean %>%
+  mutate(school_id = str_sub(id, 1, 1),
+         condition = case_when(
+           school_id == "1" | school_id == "3" | school_id == "5" ~ "1",
+           school_id == "2" | school_id == "4" | school_id == "6" ~ "2"
+         )) %>%
+  select(school_id, condition, everything()) %>%
+  select(- school) # selecting out (i.e. deleting) original faulty school variable
+```
+
+# Adding value labels and making vars numeric 
+```{r}
+p_w1_clean_3 <- p_w1_clean_2 %>%
+  mutate(condition = as.numeric(condition),
+         condition = set_vall(condition, c("control" = 1, "intervention" = 2)),
+         school_id = as.numeric(school_id),
+         school_id = set_vall(school_id, c("cascade" = 1, "prairie_mountain" = 2, "kelly" = 3, "ata" = 4, "briggs" = 5, "agnes_stewart" = 6)))
+```
+
+# Creating individual id variable
+```{r}
+p_w1_clean_3 <- p_w1_clean_3 %>% 
+  mutate(participant = ifelse(response_id == "R_1ON5POXTzIXrIeb", 4, participant), # changing partic. type to correspond to records
+         participant_4_text = ifelse(response_id == "R_1ON5POXTzIXrIeb", "stepmom", participant_4_text), 
+         participant = as.numeric(participant),
+         participant = set_vall(participant, c("mom" = 1, "dad" = 2, "tutor legal" = 3, "other, specify" = 4)),
+         participant_id = paste0(id, "_", participant), .before = 5) %>% # new var as unique identifier
+  rename(c("family_id" = "id")) 
+```
+
+# renaming vars to correspond to value labels 
+```{r}
+# item that asks about # of adults in home is spreaded out and had an unusual coding.
+p_w1_clean_3 <- p_w1_clean_3 %>%
+  rename(c("q211_1" = "q211_2"),
+         c("q211_2" = "q211_99"),
+         c("q211_3" = "q211_4"),
+         c("q211_4" = "q211_5"),
+         c("q211_5" = "q211_6"),
+         c("q211_99" = "q211_7"),
+         c("q211_6_text" = "q211_6_text"))
+```
+
+```{r}
+view_df(p_w1_clean_3)
+```
+
+
+# checking missing ids (note 08.26.22: made rearrangements to create a parent only wave 1 dataset)
+```{r}
+p_w1_clean_3 %>%
+  filter(family_id == "106") # participant data complete, W1 student data is on W2 dataset
+
+p_w1_clean_3 %>%
+  filter(participant_id == "301_2")# participant dropped from study and is -99 throughout. Id not present in w2 and w3.
+
+p_w1_clean_3 %>%
+  filter(family_id == "504") # parent participant data complete, but no student data for wave 1 (I found youth response id tied to id 504 in call logs for W1. Logs indicate youth completed W1 and W2. Remains a mystery what happened to wave 1 youth data.)
+```
+
+# dataset with all parent data (note 08.26.22: not necesarilly linked with youth)
+```{r}
+all_parent_wave1 <- p_w1_clean_3 %>%
+  filter(family_id != 301) %>% # deleted bec participant dropped from study and is -99 throughout. Id not present in w2 and w3.
+  arrange()
+```
+
+# Number of participants in Wave 1
+```{r}
+# 124 total parent participants in w1, from which...
+
+all_parent_wave1 %>%
+  filter(participant == 1) # 91 were moms
+
+all_parent_wave1 %>%
+  filter(participant == 2) # 31 were dads
+
+all_parent_wave1 %>%
+  filter(participant == 4) # 2 were "other" (1 stepmom, 1 grandparent)
+
+unique(all_parent_wave1$family_id) # 95 unique id values, thus 95 families in W1. 
+```
+
+
+```{r}
+view_df(all_parent_wave1)
+# all_parent_wave1 %>%
+#   haven::write_sav(here("nopublish", "all_parent_wave1.sav")) 
+```
+
+# ------ Notes on W1 dataset -------
+# participants ids 415 and 418 had 3 records each. 
+# participant id 415 was a family of three: 2 moms, 1 dad. One of the moms was recoded as "other, specify" in the `participant` variable and "stepmom" in the `participant_4_text` variable. 
+# Participant id 418 was "triplicated" and there was no "mom" for id 408 that was only a "dad". This was fixed.
+# # Total participants in wave n = 124
+# ------------------------------------
+
+##############################################
+# keeping only parent & student linked data
+##############################################
+
+```{r}
+p_w1_clean_4 <- p_w1_clean_3 %>%
+  filter(family_id != 301) %>% # deleted bec participant dropped from study and is -99 throughout. Id not present in w2 and w3.
+  filter(family_id != 504) %>% # deleted because no corresponding youth data on W1, despite logs indicating youth completed W1 and W2.
+  arrange(participant_id) # this is the cleaned complete parent wave 1 dataset that wil link with youth dataset
+
+data.frame(table(p_w1_clean_4$family_id)) 
+
+unique(p_w1_clean_4$family_id) # 94 parents
+```
+
+# Number of participants in Wave 1 with matching youth ids
+```{r}
+# 123 total participants in w1, from which...
+
+p_w1_clean_4 %>%
+  filter(participant == 1) # 90 were moms
+
+p_w1_clean_4 %>%
+  filter(participant == 2) # 31 were dads
+
+p_w1_clean_4 %>%
+  filter(participant == 4) # 2 were "other" (1 stepmom, 1 grandparent)
+
+unique(p_w1_clean_4$family_id) # 94 unique id values, thus 94 families in W1. 
+```
+
+# filtering primary caregiver only
+```{r}
+p_w1_clean_5 <- p_w1_clean_4 %>%
+  distinct(family_id, .keep_all = TRUE)
+```
+
+# cleaning names for joining
+```{r}
+# adding "p1" to each variable name: "p" stands for parent, "1" for wave 1.
+names(p_w1_clean_5) <- paste(names(p_w1_clean_5), "p1", sep = "_")
+
+p_w1_clean_6 <- p_w1_clean_5 %>%
+  rename(c("school_id" = "school_id_p1"),
+         c("condition" = "condition_p1"),
+         c("family_id" = "family_id_p1"),
+         c("participant_id" = "participant_id_p1")) %>% # renaming these variables to be able to join later
+  select(-response_id_p1)
+
+view_df(p_w1_clean_6)
+
+# parent_w1 %>%
+#   haven::write_sav(here("nopublish", "p_w1_clean_6.sav")) 
+```
+
+# joining parent wave 1 with home visit #1
+note: the code below requires to have the home visit data loaded
+note2: the joined data below has the HV #1 data from step parent with id 415_4 who was the person interviewed, but the W1 assessment belongs to bio mom (415_1). All parents from this family participated and completed W1, w2, and possibly W3 assessments. 
+```{r}
+# parent_w1_hv1 <- left_join(p_w1_clean_6, p_w1_demo_2, by = "family_id")
+# 
+# view_df(parent_w1_hv1)
+```
+
+# joining parent_w1_hv1 with matching youth wave 1 dataset
+```{r}
+# parent_hv1_youth_w1 <- left_join(parent_w1_hv1, y_w1_clean_6)
+# 
+# view_df(parent_hv1_youth_w1)
+
+# parent_hv1_youth_w1 %>%
+#   haven::write_sav(here("nopublish", "parent_hv1_youth_w1.sav")) # dataset created on April 5, 2022
+```
+
+Note on Nov 3/22: This parent_hv1_youth_w1 doesn't include a renaming of variables h2 (TC sex) & h6 (Interview location), but it's irrelevant. 
