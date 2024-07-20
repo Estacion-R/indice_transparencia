@@ -57,7 +57,7 @@ df_transparencia <- df_transparencia |>
                                                 x %in% c("No corresponde", "Valor nulo") ~ NA_real_)))
 
 ### Armo los promedios para las preguntas que tienen índice y subìndice: 3, 4 y 10
-df_transparencia <- df_transparencia |> 
+df_transparencia_limpia <- df_transparencia |> 
   group_by(so_nombre) |> 
   mutate(preg_3.a = mean(c(preg_3.i.a, preg_3.ii.a), na.rm = T),
          preg_3.b = mean(c(preg_3.i.b, preg_3.ii.b), na.rm = T),
@@ -73,7 +73,7 @@ df_transparencia <- df_transparencia |>
   relocate(preg_10.a, preg_10.b, preg_10.c, .after = preg_9.c) |> 
   ungroup()
 
-pond_x_cantidad_de_items <- df_transparencia |> 
+pond_x_cantidad_de_items <- df_transparencia_limpia |> 
   #select(so_nombre, preg_1.a:preg_13.c) |> 
   pivot_longer(cols = starts_with("preg_"), names_to = "pregunta", values_to = "respuesta") |> 
   separate(col = "pregunta", into = c("preg_numero", "preg_item", "preg_subitem"), sep = "\\.") |> 
@@ -99,7 +99,7 @@ pond_x_cantidad_de_items <- pond_x_cantidad_de_items |>
 
 
 # Agrego las columnas de cantidad de items a la base de trabajo
-df_transparencia <- df_transparencia |> 
+df_transparencia <- df_transparencia_limpia |> 
   left_join(pond_x_cantidad_de_items, by = "so_nombre")
 
 
