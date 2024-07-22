@@ -22,7 +22,7 @@ params:
 knitr::opts_chunk$set(message = FALSE, warning = FALSE, echo = FALSE)
 ```
 
-```{r echo=FALSE}
+```{r echo=FALSE, message=FALSE, warning=FALSE}
 library(here)
 source(here("R/00-librerias.R"))
 source(here("R/config_manual_estilo.R"))
@@ -80,13 +80,11 @@ $IT = ((subíndice TA * ponderador)) + ((subíndice TP * ponderador))* 100$
 
 
 Asimismo, los subíndices se pueden reportar de manera independiente siendo valor de ellos estimados como el promedio ponderado de los ítems que los componen. Las fórmulas son las siguientes:
-```{r}
-# 
-# $TA = ((Ítem 1 * ponderador) + (Ítem 2 * ponderador) + ... (Ítem 13 * ponderador)) * 100$
-# 
-# $TP = ((Ítem 14 * ponderador) + (Ítem 15 * ponderador) + ... (Ítem 20 * ponderador)) * 100$
+ 
+$TA = ((Ítem 1 * ponderador) + (Ítem 2 * ponderador) + ... (Ítem 13 * ponderador)) * 100$
+ 
+$TP = ((Ítem 14 * ponderador) + (Ítem 15 * ponderador) + ... (Ítem 20 * ponderador)) * 100$
 
-```
 
 
 ## Resultados del Índice de Transparencia {-}
@@ -95,26 +93,16 @@ A continuación, se detallan los resultados obtenidos por el organismo en la med
 
 ```{r}
 ## Resultado TOTAL
-df_tabla_indice <- df_transparencia_so |> 
-  #filter(periodo == params$periodo)
-  distinct(periodo, so_tipo, so_nombre, item_tipo, preg_numero, prom_subitem, pond_componente, pond_indice) |> 
-  mutate(indice_ta = case_when(item_tipo == "TA" ~ prom_subitem * pond_componente),
-         indice_tp = case_when(item_tipo == "TP" ~ prom_subitem * pond_componente),
-         indice_total = prom_subitem * pond_indice) |> 
-  summarise("Transparencia Activa" = sum(indice_ta, na.rm = T) * 100,
-            "Transparencia Proactiva" = sum(indice_tp, na.rm = T) * 100,
-            "Índice de Transparencia" = sum(indice_total, na.rm = T)* 100,
-            .by = c(periodo, so_nombre)) |> 
-  mutate(across(where(is.numeric), \(x) round(x, digits = 1))) |> 
-  pivot_longer(cols = contains("Transparencia"), names_to = "indice", values_to = "indice_valor") |> 
-  mutate(indice = factor(indice, levels = c("Índice de Transparencia",
-                                            "Transparencia Proactiva",
-                                            "Transparencia Activa"))) 
+df_tabla_indice <- df_transparencia_so |>
+  select(TA, TP, IT) |> 
+  summarise(across(everything(), mean)) |> 
+  mutate(across(everything(), round, 1)) |> 
+  pivot_longer(cols = everything(), names_to = "indice", values_to = "valor")
 
 df_tabla_indice |> 
-  ggplot(aes(x = indice_valor, y = indice)) + 
+  ggplot(aes(x = valor, y = indice)) + 
   geom_col(fill = color_celeste) +
-  geom_text(aes(label = indice_valor), hjust = -0.1) + 
+  geom_text(aes(label = valor), hjust = -0.1) + 
   geom_vline(xintercept = 0) + 
   xlim(0, 100) + 
   labs(title = "Resultados Índice de Transparencia",
@@ -136,18 +124,18 @@ Se releva una selección de los tipos de información exigibles en los términos
 
 ```{r}
 ## Resultado POR DIMENSIÓN
-
 tabla_indiceTA_x_dimension <- df_transparencia_so |> 
-  filter(item_tipo == "TA") |> 
-  distinct(periodo, so_tipo, so_nombre, preg_numero, prom_subitem) |> 
-  slice_head(n = 1, by = c(periodo, so_tipo, so_nombre, preg_numero)) |> 
-  left_join(dicc_equivalencias, by = c("preg_numero" = "codigo")) |> 
-  mutate(equivalencia = paste0(preg_numero, ". ", equivalencia)) |> 
-  select(periodo, equivalencia, prom_subitem) |> 
-  add_row(periodo = df_tabla_indice$periodo[1], 
-          equivalencia = "Índice de Transparencia Activa", 
-          prom_subitem = df_tabla_indice |> 
-            filter(indice == "Transparencia Activa") |> pull(indice_valor)/100, .before = 1)
+  select(periodo,so_nombre, preg_1:preg_13) |> 
+  pivot_longer(cols = starts_with("preg"), names_to = "dimension", values_to = "valor") |> 
+  mutate(pregunta = str_remove_all(dimension, "preg_"),
+         pregunta = as.numeric(pregunta)) |> 
+  left_join(dicc_equivalencias, by = c("pregunta" = "codigo")) |> 
+  mutate(dimension = paste0(pregunta, ". ", equivalencia)) |> 
+  select(periodo, dimension, valor) |> 
+  add_row(periodo = params$periodo, 
+          dimension = "Índice de Transparencia Activa", 
+          valor = df_tabla_indice |> 
+            filter(indice == "TA") |> pull(valor)/100, .before = 1)
 
 tabla_indiceTA_x_dimension |> 
   select(-periodo) |> 
@@ -158,26 +146,26 @@ tabla_indiceTA_x_dimension |>
     ) |> 
   tab_footnote(footnote = "Fuente: elaboración propia en base a resultados IT") |> 
   cols_label(
-    equivalencia = "**Dimensión**",
-    prom_subitem = "**Valor del índice**",
+    dimension = "**Dimensión**",
+    valor = "**Valor del índice**",
     .fn = md
   ) |> 
-  fmt_number(columns = prom_subitem, decimals = 1, sep_mark = ".", dec_mark = ",",  
+  fmt_number(columns = valor, decimals = 1, sep_mark = ".", dec_mark = ",",  
              scale_by = 100, drop_trailing_zeros = TRUE, drop_trailing_dec_mark = TRUE) |> 
   tab_style(
     style = list(
       cell_text(weight = "bold")),
     locations = cells_body(
-      rows = equivalencia == "Índice de Transparencia Activa"
+      rows = dimension == "Índice de Transparencia Activa"
     )
   ) |> 
-  cols_align(align = "left", columns = equivalencia) |> 
-  cols_align(align = "center", columns = prom_subitem) |> 
+  cols_align(align = "left", columns = dimension) |> 
+  cols_align(align = "center", columns = valor) |> 
   tab_options(
     table.width = pct(95)
     ) |>
   sub_missing(
-    columns = prom_subitem,
+    columns = valor,
     missing_text = "-"
   )
 ```
@@ -191,16 +179,17 @@ Los ítems de transparencia proactiva son una innovación en el índice, dado qu
 ## Resultado POR DIMENSIÓN
 
 tabla_indiceTP_x_dimension <- df_transparencia_so |> 
-  filter(item_tipo == "TP") |> 
-  distinct(periodo, so_tipo, so_nombre, preg_numero, prom_subitem) |> 
-  slice_head(n = 1, by = c(periodo, so_tipo, so_nombre, preg_numero)) |> 
-  left_join(dicc_equivalencias, by = c("preg_numero" = "codigo")) |> 
-  mutate(equivalencia = paste0(preg_numero, ". ", equivalencia)) |> 
-  select(periodo, equivalencia, prom_subitem) |> 
-  add_row(periodo = df_tabla_indice$periodo[1], 
-          equivalencia = "Índice de Transparencia Procativa", 
-          prom_subitem = df_tabla_indice |> 
-            filter(indice == "Transparencia Proactiva") |> pull(indice_valor)/100, .before = 1)
+  select(periodo,so_nombre, preg_14:preg_20) |> 
+  pivot_longer(cols = starts_with("preg"), names_to = "dimension", values_to = "valor") |> 
+  mutate(pregunta = str_remove_all(dimension, "preg_"),
+         pregunta = as.numeric(pregunta)) |> 
+  left_join(dicc_equivalencias, by = c("pregunta" = "codigo")) |> 
+  mutate(dimension = paste0(pregunta, ". ", equivalencia)) |> 
+  select(periodo, dimension, valor) |> 
+  add_row(periodo = params$periodo, 
+          dimension = "Índice de Transparencia Proactiva", 
+          valor = df_tabla_indice |> 
+            filter(indice == "TP") |> pull(valor)/100, .before = 1)
 
 tabla_indiceTP_x_dimension |> 
   select(-periodo) |> 
@@ -211,25 +200,26 @@ tabla_indiceTP_x_dimension |>
     ) |> 
   tab_footnote(footnote = "Fuente: elaboración propia en base a resultados IT") |> 
   cols_label(
-    equivalencia = "**Dimensión**",
-    prom_subitem = "**Valor del índice**",
+    dimension = "**Dimensión**",
+    valor = "**Valor del índice**",
     .fn = md
   ) |> 
-  fmt_percent(columns = prom_subitem, decimals = 1, sep_mark = ".", dec_mark = ",") |> 
+  fmt_number(columns = valor, decimals = 1, sep_mark = ".", dec_mark = ",",  
+             scale_by = 100, drop_trailing_zeros = TRUE, drop_trailing_dec_mark = TRUE) |> 
   tab_style(
     style = list(
       cell_text(weight = "bold")),
     locations = cells_body(
-      rows = equivalencia == "Índice de Transparencia Procativa"
+      rows = dimension == "Índice de Transparencia Procativa"
     )
   ) |> 
-  cols_align(align = "left", columns = equivalencia) |> 
-  cols_align(align = "center", columns = prom_subitem) |> 
+  cols_align(align = "left", columns = dimension) |> 
+  cols_align(align = "center", columns = valor) |> 
   tab_options(
     table.width = pct(95)
     ) |>
   sub_missing(
-    columns = prom_subitem,
+    columns = valor,
     missing_text = "-"
   )
 ```
