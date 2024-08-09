@@ -6,3 +6,5 @@ library(gt)
 library(glue)
 library(googlesheets4)
 library(googledrive)
+
+cli::cli_alert_success("Librerías cargadas con éxito")

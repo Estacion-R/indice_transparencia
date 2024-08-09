@@ -13,7 +13,6 @@ output:
 knit: pagedown::chrome_print
 main-color: "#6BA09D"
 params:
-  sujeto_obligado: param_so
   periodo: param_fecha
 ---
 
@@ -24,7 +23,7 @@ knitr::opts_chunk$set(message = FALSE, warning = FALSE, echo = FALSE)
 ```{r echo=FALSE}
 library(here)
 source(here("R/00-librerias.R"))
-source(here("R/config_manual_estilo.R"))
+source(here("R/CONFIG_manual_estilo.R"))
 ```
 
 ```{r echo=FALSE, warning=FALSE, message=FALSE}
@@ -42,10 +41,7 @@ ultima_base <- max(list.files(here("bases/"), pattern = "LIMPIA"))
 df_transparencia <- read_csv(here(glue("bases/{ultima_base}")))
 
 # ##### Parametros para probar sin iteración
-param_so <- unique(df_transparencia$so_nombre)[7]
 param_fecha <- unique(df_transparencia$periodo)[1]
-
-etiq_so <-tolower(str_replace_all(param_so, " ", "_"))
 
 df_transparencia_periodo <- df_transparencia |> 
   filter(periodo == param_fecha)
@@ -163,7 +159,8 @@ tabla_indiceTA_x_dimension |>
   cols_align(align = "left", columns = dimension) |> 
   cols_align(align = "center", columns = valor) |> 
   tab_options(
-    table.width = pct(95)
+    #table.width = pct(95),
+    data_row.padding = px(5)
     ) |>
   sub_missing(
     columns = valor,
@@ -315,13 +312,17 @@ tabla_indiceTA_x_dimension_y_tipo |>
   ) |> 
   cols_align(align = "left", columns = dimension) |> 
   cols_align(align = "center", columns = where(is.numeric)) |> 
-  tab_options(
-    table.width = pct(95)
-    ) |>
   sub_missing(
     columns = where(is.numeric),
     missing_text = "-"
-  )
+  ) |> 
+  tab_options(
+    #table.width = pct(60),
+    data_row.padding = px(5),
+    heading.title.font.size = px(20),
+    heading.subtitle.font.size = px(17),
+    table.font.size = "75%"
+    )
 ```
 
 
@@ -382,6 +383,13 @@ tabla_indiceTP_x_dimension_y_tipo |>
   sub_missing(
     columns = where(is.numeric),
     missing_text = "-"
+  ) |> 
+  tab_options(
+      #table.width = pct(60),
+    data_row.padding = px(5),
+    heading.title.font.size = px(20),
+    heading.subtitle.font.size = px(17),
+    table.font.size = "75%"
   )
 ```
 
@@ -415,13 +423,25 @@ tabla_apendice |>
     link = "**Link**",
     .fn = md
   ) |> 
-  tab_style(
-    style = list(
-      cell_text(style = "italic")),
-    locations = cells_body(
-      columns = link
-    )
-  )
+  # tab_style(
+  #   style = list(
+  #     cell_text(style = "italic")),
+  #   locations = cells_body(
+  #     columns = link
+  #   )
+  # ) |> 
+  tab_options(
+      #table.width = pct(60),
+    data_row.padding = px(5),
+    heading.title.font.size = px(18),
+    heading.subtitle.font.size = px(16),
+    table.font.size = "60%"
+  ) |> 
+  cols_width(
+    so_nombre ~ px(350)
+    #link ~ px()
+  ) |> 
+  gt_split(row_every_n = 23)
 ```
 
 

@@ -107,5 +107,7 @@ output_tablas_it <- list(
   "tabla 7" = salida_tabla_7
 )
 
-writexl::write_xlsx(output_tablas_it, glue::glue("salidas/output_visualizaciones_{today()}.xlsx"))
+writexl::write_xlsx(output_tablas_it, glue::glue("salidas/bases_limpias/output_visualizaciones_{today()}.xlsx"))
 
+
+cli::cli_alert_success("Tablas para visualizaciones generada con éxito")

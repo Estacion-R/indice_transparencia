@@ -47,6 +47,9 @@ df_transparencia <- df_transparencia |>
   select(periodo, so_nombre, so_tipo,
          starts_with("preg_"))
 
+## Limpio nombre de sujetos obligados, sacando comillas que pueden generar error en el procesamiento
+df_transparencia <- df_transparencia |> 
+  mutate(so_nombre = limpio_texto(so_nombre))
 
 # - Codifico variable de respuesta a númerica
 df_transparencia <- df_transparencia |> 
@@ -177,3 +180,5 @@ df_transparencia <- df_transparencia |>
             
 ## Escribo base limpia
 readr::write_csv(df_transparencia, glue::glue("bases/{lubridate::today()}_LIMPIA-formulario_relevamiento.csv"))
+
+cli::cli_alert_success("Base de trabajo creada con éxito", )

@@ -24,4 +24,6 @@ output_bbss_datos_abiertos <- list(
   "BBDD_relevamiento" = salida_bbdd_relevamiento,
   "BBDD_resultados" = salida_bbdd_resultados)
 
-writexl::write_xlsx(output_bbss_datos_abiertos, glue::glue("salidas/output_datos_abiertos_{today()}.xlsx"))
+writexl::write_xlsx(output_bbss_datos_abiertos, glue::glue("salidas/bases_limpias/output_datos_abiertos_{today()}.xlsx"))
+
+cli::cli_alert_success("Tabla para datos abiertos generada con éxito")
