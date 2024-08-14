@@ -30,8 +30,11 @@ source(here("R/CONFIG_manual_estilo.R"))
 ### Importo ultima base limpia
 ultima_base <- max(list.files(here("bases/"), pattern = "LIMPIA"))
 
-df_transparencia_periodo <- read_csv(here(glue("bases/{ultima_base}"))) |> 
+df_transparencia_periodo <- read_csv(here(glue("bases/{ultima_base}"))) |>
+  mutate(periodo = case_when(periodo %in% text_semestre_1 ~ "1er semestre",
+                              periodo %in% text_semestre_2 ~ "2do semestre")) %>% 
   filter(periodo == params$periodo)
+
 ```
 
 ```{r eval=FALSE}
@@ -39,6 +42,16 @@ df_transparencia_periodo <- read_csv(here(glue("bases/{ultima_base}"))) |>
 ultima_base <- max(list.files(here("bases/"), pattern = "LIMPIA"))
 
 df_transparencia <- read_csv(here(glue("bases/{ultima_base}")))
+
+text_semestre_1 <- c("1° Trimestre 2024 (Enero – Marzo)",
+                     "2° Trimestre 2024 (Abril - Junio)")
+text_semestre_2 <- c("3° Trimestre 2024 (Julio – Septiembre)",
+                     "4° Trimestre 2024 (Octubre – Diciembre)")
+               
+
+df_transparencia <- df_transparencia %>% 
+  mutate(periodo = case_when(periodo %in% text_semestre_1 ~ "1er semestre",
+                              periodo %in% text_semestre_2 ~ "2do semestre"))
 
 # ##### Parametros para probar sin iteración
 param_fecha <- unique(df_transparencia$periodo)[1]
@@ -405,10 +418,16 @@ tabla_indiceTP_x_dimension_y_tipo |>
 ## Apéndice {-}
 
 ```{r}
+ultima_base <- max(list.files(here("bases/"), pattern = "CRUDA"))
+
+df_transparencia_orig <- read_csv(here(glue("bases/{ultima_base}")))
 tabla_apendice <- df_transparencia_orig
 colnames(tabla_apendice) <- dicc_variables$nombre_de_variable 
 
 tabla_apendice |>
+  mutate(periodo = case_when(periodo %in% text_semestre_1 ~ "1er semestre",
+                              periodo %in% text_semestre_2 ~ "2do semestre")) %>% 
+  filter(periodo == params$periodo) %>% 
   mutate(so_nombre = case_when(!is.na(admin_central_desconcentrada) ~ admin_central_desconcentrada,
                           !is.na(universidades) ~ universidades,
                           !is.na(empresas_publicas) ~ empresas_publicas,

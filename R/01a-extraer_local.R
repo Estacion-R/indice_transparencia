@@ -3,7 +3,7 @@
 #################################### CARGO BASE DE FORMA LOCAL
 ### Importo base de datos de forma local (cuando no funciona el acceso directo a google drive)
 ruta <- "bases/"
-archivo <- "Formulario de relevamiento - Índice de Transparencia 2024 (respuestas).xlsx"
+archivo <- "BORRADOR - Formulario de relevamiento - Índice de Transparencia 2024 (respuestas) - Semestre.xlsx"
 df_transparencia_orig <- read_excel(here(paste0(ruta, archivo)), sheet = 1)
 
 

@@ -22,13 +22,10 @@ unique(df_transparencia$so_nombre)
 
 # Ejemplo:
 # param_so <- "Universidad Nacional de Pilar"
-
 param_so <- "seleccionar sujeto obligado aca"
 
 # Esto se ejecuta sólo, NO EDITAR
 etiq_so <-tolower(str_replace_all(param_so, " ", "_"))
-
-
 
 ### base específica para el sujeto obligado y periodo
 df_transparencia_so <- df_transparencia |>

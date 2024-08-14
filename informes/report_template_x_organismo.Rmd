@@ -1,6 +1,6 @@
 ---
 title: "."
-subtitle: "- `r params$sujeto_obligado`"
+subtitle: "`r params$sujeto_obligado`"
 author: ""
 date: ""
 output: 
