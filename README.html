@@ -358,11 +358,83 @@ display: none;
 <p>Objetivo: Estandarizar y automatizar el procesamiento de datos para
 la estimación del índicador en cuestión.</p>
 </blockquote>
+<p><br></p>
 <div id="estructura-de-carpeta-y-descripción-de-las-mismas" class="section level2">
 <h2>Estructura de carpeta y descripción de las mismas</h2>
 <ul>
-<li><a href="archivo">archivo</a></li>
+<li><a href="archivo">archivo:</a> Repositorio para archivos, scripts o
+documentos obsoletos.</li>
+<li><a href="bases">bases:</a> Carpeta donde ubicar la base de datos con
+los sujetos obligados relevados.</li>
+<li><a href="docs">docs:</a> Espacio para alojar archivos que no sean
+parte del procesamiento, como documentos metodológicos, archivos
+auxiliares, etc.</li>
+<li><a href="informes">informes:</a> Aquí se ubican:
+<ul>
+<li>Modelos de informes a ser consumidos por el procesamiento para
+generar reportes de resultados por sujeto obligado, trimestre y
+semestre</li>
+<li><a href="informes/informe_portadas">informe_portadas:</a> Portadas a
+ser utilizadas por estos modelos de reporte</li>
+<li><a href="informes/control_calidad">control_calidad</a> Posibles
+reportes de calidad a diseñar para ejecutar sobre la base de datos</li>
+</ul></li>
+<li><a href="R">R:</a> Aquí se ubican los scripts que conforman el
+procesamiento de datos en sí, pasando por las principales etapas del
+flujo de trabajo: importar –&gt; limpiar –&gt; transformar –&gt;
+visualizar –&gt; exportar</li>
+<li><a href="salidas">salidas:</a> En esta carpeta se alojan:
+<ul>
+<li><a href="salidas/bases_limpias">bases_limpias:</a> bases de trabajo,
+una vez ejecutado el proceso de importación y transformación de los
+datos. Estas bases serań los insumos para los tabulados y reportes.</li>
+<li><a href="salidas/salidas_reportes">salidas_reportes:</a>
+<ul>
+<li><a href="salidas/salidas_reportes/por_sujeto_obligado">por_sujeto_obligado:</a>
+Informes creados por sujeto obligado</li>
+<li><a href="salidas/salidas_reportes/por_trimestre">por_trimestre:</a>
+Informes creados por trimestre</li>
+<li><a href="salidas/salidas_reportes/por_semestre">por_semestre:</a>
+Informes creados por semestre</li>
+</ul></li>
+</ul></li>
 </ul>
+<p><br></p>
+<div id="set-de-archivos-para-ejecutar-el-procesamiento" class="section level3">
+<h3>Set de archivos para ejecutar el procesamiento:</h3>
+<ul>
+<li>El primer paso es ejecutar el archivo <a href="01-TABLERO_limpieza_y_tablas.R">01-TABLERO_limpieza_y_tablas.R</a>
+<ul>
+<li>Las principales tareas desarrolladas en este script son:
+<ul>
+<li>Importar los datos (de forma local o a través de la nube).</li>
+<li>Transformar y limpiar los datos</li>
+<li>Generar los tabulados para <em>visualización</em> y <em>datos
+abiertos</em></li>
+</ul></li>
+</ul></li>
+<li>Una vez realizado el primer paso, se puede ejecutar (en cualquier
+orden), cualquiera de los siguientes scripts, en función de las
+necesidades concretas del momento:
+<ul>
+<li><a href="REPORTES%20-%20por_sujeto_obligado.R">REPORTES -
+por_sujeto_obligado.R</a>… desde donde se podrá correr un informe de
+forma individual por un <strong>sujeto obligado</strong> en específico o
+de forma automática para todos los <strong>sujetos obligados</strong> de
+la base de datos</li>
+<li><a href="REPORTES%20-%20por_trimestre.R">REPORTES -
+por_trimestre.R</a>… desde donde se podrá correr un informe de forma
+individual por un <strong>trimestre</strong> en específico o de forma
+automática para todos los <strong>trimestres</strong> de la base de
+datos</li>
+<li><a href="REPORTES%20-%20por_trimestre.R">REPORTES -
+por_semestre.R</a>… desde donde se podrá correr un informe de forma
+individual por un <strong>semestre</strong> en específico o de forma
+automática para todos los <strong>semestre</strong> de la base de
+datos</li>
+</ul></li>
+</ul>
+</div>
 </div>
 </div>
 
