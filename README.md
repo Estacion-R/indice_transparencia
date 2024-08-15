@@ -34,4 +34,4 @@
 - Una vez realizado el primer paso, se puede ejecutar (en cualquier orden), cualquiera de los siguientes scripts, en función de las necesidades concretas del momento:
   -  [REPORTES - por_sujeto_obligado.R](REPORTES - por_sujeto_obligado.R) desde donde se podrá correr un informe de forma individual por un __sujeto obligado__ en específico o de forma automática para todos los __sujetos obligados__ de la base de datos
   -  [REPORTES - por_trimestre.R](REPORTES - por_trimestre.R) desde donde se podrá correr un informe de forma individual por un __trimestre__ en específico o de forma automática para todos los __trimestres__ de la base de datos
-  -  [REPORTES - por_semestre.R](REPORTES - por_trimestre.R) desde donde se podrá correr un informe de forma individual por un __semestre__ en específico o de forma automática para todos los __semestre__ de la base de datos
+  -  [REPORTES - por_semestre.R](REPORTES - por_semestre.R) desde donde se podrá correr un informe de forma individual por un __semestre__ en específico o de forma automática para todos los __semestre__ de la base de datos
